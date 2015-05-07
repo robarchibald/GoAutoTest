@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
-using System.Threading;
 
 namespace GoAutoTest
 {
@@ -42,7 +40,7 @@ namespace GoAutoTest
         StartInfo =
         {
           FileName = @"C:\Go\bin\go.exe",
-          Arguments = "test -v -short",
+          Arguments = "test -v -short -coverprofile cover.out",
           CreateNoWindow = true,
           WorkingDirectory = path,
           UseShellExecute = false,
@@ -79,17 +77,53 @@ namespace GoAutoTest
 
         if (line.Contains("---"))
           Console.WriteLine(line);
+
+        if (line.Contains("coverage:"))
+        {
+          var percent = Convert.ToDecimal(SubstringBetween(line, "coverage: ", "%"));
+          if (percent < 70)
+          {
+            Console.ForegroundColor = ConsoleColor.Red;
+            hasError = true;
+          }
+          else if (percent < 85)
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+          else
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+
+          Console.WriteLine();
+          Console.WriteLine(line);
+        }
       }
       Console.WriteLine(line);
       Console.ForegroundColor = ConsoleColor.Red;
       var errors = process.StandardError.ReadToEnd();
       Console.WriteLine(errors);
 
+      Console.WriteLine(process.StandardOutput.ReadToEnd());
+
       if (hasError || !string.IsNullOrWhiteSpace(errors))
       {
         Console.Beep(660, 200);
         Console.Beep(440, 200);
       }
+    }
+
+    private static string SubstringBetween(string source, string start, string end)
+    {
+      var startIndex = source.IndexOf(start, StringComparison.CurrentCulture);
+      if (startIndex != -1)
+      {
+        var endIndex = source.IndexOf(end, startIndex, StringComparison.CurrentCultureIgnoreCase);
+        if (endIndex != -1)
+        {
+          return source.Substring(startIndex + start.Length, endIndex - startIndex - start.Length);
+        }
+
+        return source.Substring(startIndex + start.Length);
+      }
+
+      return source;
     }
   }
 }

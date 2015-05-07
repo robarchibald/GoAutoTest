@@ -27,6 +27,7 @@ namespace GoAutoTest
       {
         System.Threading.Thread.Sleep(100);
       }
+
     }
 
     static void OnWatcherChange(string path)

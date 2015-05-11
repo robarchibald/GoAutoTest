@@ -5,8 +5,6 @@ namespace GoAutoTest
 {
   class Program
   {
-    private static DateTime lastFileChangeTime;
-
     static void Main(string[] args)
     {
       string path = args.Length > 0 ? args[0] : null;
@@ -17,7 +15,6 @@ namespace GoAutoTest
         path = Console.ReadLine();
       }
 
-      lastFileChangeTime = DateTime.Now;
       var watcher = new DirectoryMonitor(path, "*.go");
       watcher.Change += OnWatcherChange;
 
@@ -30,7 +27,7 @@ namespace GoAutoTest
 
     static void OnWatcherChange(string path)
     {
-      RunTests(Path.GetDirectoryName(path));
+      RunTests(path);
     }
 
     private static void RunTests(string path)
@@ -42,7 +39,7 @@ namespace GoAutoTest
           FileName = @"C:\Go\bin\go.exe",
           Arguments = "test -v -short -coverprofile cover.out",
           CreateNoWindow = true,
-          WorkingDirectory = path,
+          WorkingDirectory = Path.GetDirectoryName(path),
           UseShellExecute = false,
           RedirectStandardOutput = true,
           RedirectStandardError = true
@@ -54,6 +51,8 @@ namespace GoAutoTest
       Console.ForegroundColor = ConsoleColor.White;
       var hasError = false;
       string line = null;
+      string coverageLine = null;
+      decimal coveragePercent = 0;
       while (!process.StandardOutput.EndOfStream)
       {
         line = process.StandardOutput.ReadLine();
@@ -80,19 +79,8 @@ namespace GoAutoTest
 
         if (line.Contains("coverage:"))
         {
-          var percent = Convert.ToDecimal(SubstringBetween(line, "coverage: ", "%"));
-          if (percent < 70)
-          {
-            Console.ForegroundColor = ConsoleColor.Red;
-            hasError = true;
-          }
-          else if (percent < 85)
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-          else
-            Console.ForegroundColor = ConsoleColor.DarkGreen;
-
-          Console.WriteLine();
-          Console.WriteLine(line);
+          coveragePercent = Convert.ToDecimal(SubstringBetween(line, "coverage: ", "%"));
+          coverageLine = line;
         }
       }
       Console.WriteLine(line);
@@ -102,7 +90,23 @@ namespace GoAutoTest
 
       Console.WriteLine(process.StandardOutput.ReadToEnd());
 
-      if (hasError || !string.IsNullOrWhiteSpace(errors))
+      process.StartInfo.Arguments = "tool cover -func=cover.out";
+      process.Start();
+      process.WaitForExit();
+      string shortFile = Path.GetFileNameWithoutExtension(path).Replace("_test", "");
+      while (!process.StandardOutput.EndOfStream)
+      {
+        line = process.StandardOutput.ReadLine();
+        if (line.Contains(shortFile))
+        {
+          var info = line.Substring(line.IndexOf("\t", StringComparison.CurrentCulture)).Trim();
+          var functionPercentage = Convert.ToDecimal(SubstringBetween(info, "\t", "%"));
+          PrintCoverage(functionPercentage, info);
+        }
+      }
+
+      var coverageError = PrintCoverage(coveragePercent, coverageLine);
+      if (hasError || coverageError || !string.IsNullOrWhiteSpace(errors))
       {
         Console.Beep(660, 200);
         Console.Beep(440, 200);
@@ -124,6 +128,27 @@ namespace GoAutoTest
       }
 
       return source;
+    }
+
+    private static bool PrintCoverage(decimal percentage, string message)
+    {
+      var hasError = false;
+      if (percentage < 70)
+      {
+        Console.ForegroundColor = ConsoleColor.Red;
+        hasError = true;
+      }
+      else if (percentage < 85)
+      {
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+      }
+      else
+      {
+        Console.ForegroundColor = ConsoleColor.DarkGreen;
+      }
+      
+      Console.WriteLine(message);
+      return hasError;
     }
   }
 }

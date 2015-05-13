@@ -1,10 +1,16 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace GoAutoTest
 {
   class Program
   {
+    private const string runTestsArgs = "test -v -short";
+    private const string runCoverageArgs = "test -short -coverprofile cover.out";
+    private const string coverageArgs = "tool cover -func=cover.out";
+
     static void Main(string[] args)
     {
       string path = args.Length > 0 ? args[0] : null;
@@ -32,102 +38,104 @@ namespace GoAutoTest
 
     private static void RunTests(string path)
     {
-      var process = new System.Diagnostics.Process
-      {
-        StartInfo =
-        {
-          FileName = @"C:\Go\bin\go.exe",
-          Arguments = "test -v -short -coverprofile cover.out",
-          CreateNoWindow = true,
-          WorkingDirectory = Path.GetDirectoryName(path),
-          UseShellExecute = false,
-          RedirectStandardOutput = true,
-          RedirectStandardError = true
-        }
-      };
-      process.Start();
-      process.WaitForExit();
+      var workingDirectory = Path.GetDirectoryName(path);
+      var output = RunGoTool(workingDirectory, runTestsArgs);
+      
       Console.Clear();
       Console.ForegroundColor = ConsoleColor.White;
-      var hasError = false;
-      string line = null;
-      string coverageLine = null;
-      decimal coveragePercent = 0;
-      while (!process.StandardOutput.EndOfStream)
+      var processor = new TestOutputProcessor(output);
+      if (processor.BuildFailed)
       {
-        line = process.StandardOutput.ReadLine();
-        if (line.Contains("FAIL"))
+        ShowBuildError(output);
+        return;
+      }
+
+      foreach (var item in processor.ConsoleOutputItems)
+      {
+        Console.ForegroundColor = 
+          item.Type == OutputType.TestFail ? ConsoleColor.Red : 
+          item.Type == OutputType.TestPass ? ConsoleColor.DarkGreen : 
+          item.Type == OutputType.TestSkip ? ConsoleColor.DarkYellow : 
+          ConsoleColor.White;
+
+        if (item.Type == OutputType.TestFail || item.Type == OutputType.TestPass || item.Type == OutputType.TestSkip || item.Type == OutputType.Other)
+          Console.WriteLine(item.Message);
+      }
+
+      if (!string.IsNullOrWhiteSpace(output.StandardError))
+      {
+        if (output.StandardError.Contains("goroutine"))
         {
-          Console.ForegroundColor = ConsoleColor.Red;
-          hasError = true;
-        }
-        else if (line.Contains("PASS"))
-        {
-          Console.ForegroundColor = ConsoleColor.DarkGreen;
-        }
-        else if (line.Contains("SKIP"))
-        {
-          Console.ForegroundColor = ConsoleColor.DarkYellow;
+          Console.WriteLine(output.StandardError.Substring(0, output.StandardError.IndexOf("goroutine", StringComparison.CurrentCultureIgnoreCase)));
+          foreach (var line in output.StandardError.Split(Environment.NewLine.ToCharArray()))
+          {
+            if (line.Contains("endfirst.com"))
+              Console.WriteLine(line.SubstringAfter("endfirst.com/"));
+          }
         }
         else
         {
-          Console.ForegroundColor = ConsoleColor.White;
-        }
-
-        if (line.Contains("---"))
-          Console.WriteLine(line);
-
-        if (line.Contains("coverage:"))
-        {
-          coveragePercent = Convert.ToDecimal(SubstringBetween(line, "coverage: ", "%"));
-          coverageLine = line;
+          Console.WriteLine(output.StandardError);
         }
       }
-      Console.WriteLine(line);
-      Console.ForegroundColor = ConsoleColor.Red;
-      var errors = process.StandardError.ReadToEnd();
-      Console.WriteLine(errors);
 
-      Console.WriteLine(process.StandardOutput.ReadToEnd());
-
-      process.StartInfo.Arguments = "tool cover -func=cover.out";
-      process.Start();
-      process.WaitForExit();
+      Console.WriteLine("");
+      RunGoTool(workingDirectory, runCoverageArgs);
+      output = RunGoTool(workingDirectory, coverageArgs);
       string shortFile = Path.GetFileNameWithoutExtension(path).Replace("_test", "");
-      while (!process.StandardOutput.EndOfStream)
+      foreach (var line in output.StandardOutput)
       {
-        line = process.StandardOutput.ReadLine();
-        if (line.Contains(shortFile))
+        if (line.Contains(shortFile) || line.Contains("total:"))
         {
           var info = line.Substring(line.IndexOf("\t", StringComparison.CurrentCulture)).Trim();
-          var functionPercentage = Convert.ToDecimal(SubstringBetween(info, "\t", "%"));
+          var functionPercentage = Convert.ToDecimal(info.SubstringBetween("\t", "%"));
           PrintCoverage(functionPercentage, info);
         }
       }
 
-      var coverageError = PrintCoverage(coveragePercent, coverageLine);
-      if (hasError || coverageError || !string.IsNullOrWhiteSpace(errors))
+      var coverageError = PrintCoverage(processor.CoveragePercent, processor.CoverageLine);
+      if (processor.HasError || coverageError || output.StandardError.Any())
       {
-        Console.Beep(660, 200);
-        Console.Beep(440, 200);
+        BeepError();
       }
     }
 
-    private static string SubstringBetween(string source, string start, string end)
+    private static void ShowBuildError(ProcessOutput output)
     {
-      var startIndex = source.IndexOf(start, StringComparison.CurrentCulture);
-      if (startIndex != -1)
-      {
-        var endIndex = source.IndexOf(end, startIndex, StringComparison.CurrentCultureIgnoreCase);
-        if (endIndex != -1)
-        {
-          return source.Substring(startIndex + start.Length, endIndex - startIndex - start.Length);
-        }
+      Console.ForegroundColor = ConsoleColor.White;
+      Console.WriteLine(output.StandardError);
 
-        return source.Substring(startIndex + start.Length);
-      }
+      Console.ForegroundColor = ConsoleColor.Red;
+      foreach (var line in output.StandardOutput)
+        Console.WriteLine(line);
 
-      return source;
+      BeepError();
+    }
+
+    private static void BeepError()
+    {
+      Console.Beep(660, 200);
+      Console.Beep(440, 200);
+    }
+
+    private static ProcessOutput RunGoTool(string workingDirectory, string arguments)
+    {
+      var process = new Process
+                    {
+                      StartInfo =
+                      {
+                        FileName = @"C:\Go\bin\go.exe",
+                        Arguments = arguments,
+                        CreateNoWindow = true,
+                        WorkingDirectory = workingDirectory,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                      }
+                    };
+      process.Start();
+      process.WaitForExit();
+      return new ProcessOutput{StandardError = process.StandardError.ReadToEnd(), StandardOutput = process.StandardOutput.ReadToEnd().Split(Environment.NewLine.ToCharArray())};
     }
 
     private static bool PrintCoverage(decimal percentage, string message)

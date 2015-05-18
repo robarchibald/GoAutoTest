@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
 
 namespace GoAutoTest
 {
@@ -120,22 +123,62 @@ namespace GoAutoTest
 
     private static ProcessOutput RunGoTool(string workingDirectory, string arguments)
     {
-      var process = new Process
-                    {
-                      StartInfo =
-                      {
-                        FileName = @"C:\Go\bin\go.exe",
-                        Arguments = arguments,
-                        CreateNoWindow = true,
-                        WorkingDirectory = workingDirectory,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                      }
-                    };
-      process.Start();
-      process.WaitForExit();
-      return new ProcessOutput{StandardError = process.StandardError.ReadToEnd(), StandardOutput = process.StandardOutput.ReadToEnd().Split(Environment.NewLine.ToCharArray())};
+      const int timeout = 5000;
+      using (var process = new Process
+                           {
+                             StartInfo =
+                             {
+                               FileName = @"C:\Go\bin\go.exe",
+                               Arguments = arguments,
+                               CreateNoWindow = true,
+                               WorkingDirectory = workingDirectory,
+                               UseShellExecute = false,
+                               RedirectStandardOutput = true,
+                               RedirectStandardError = true
+                             }
+                           })
+      {
+        var output = new List<string>();
+        var error = new List<string>();
+
+        using (AutoResetEvent outputWaitHandle = new AutoResetEvent(false))
+        using (AutoResetEvent errorWaitHandle = new AutoResetEvent(false))
+        {
+          process.OutputDataReceived += (sender, e) =>
+                                        {
+                                          if (e.Data == null)
+                                          {
+                                            outputWaitHandle.Set();
+                                          }
+                                          else
+                                          {
+                                            output.Add(e.Data);
+                                          }
+                                        };
+          process.ErrorDataReceived += (sender, e) =>
+                                       {
+                                         if (e.Data == null)
+                                         {
+                                           errorWaitHandle.Set();
+                                         }
+                                         else
+                                         {
+                                           error.Add(e.Data);
+                                         }
+                                       };
+
+          process.Start();
+
+          process.BeginOutputReadLine();
+          process.BeginErrorReadLine();
+
+          if (!process.WaitForExit(timeout) || !outputWaitHandle.WaitOne(timeout) || !errorWaitHandle.WaitOne(timeout))
+          {
+            process.Kill();
+          }
+          return new ProcessOutput { StandardError = string.Join(Environment.NewLine, error), StandardOutput = output.ToArray() };
+        }
+      }
     }
 
     private static bool PrintCoverage(decimal percentage, string message)

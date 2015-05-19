@@ -86,20 +86,25 @@ namespace GoAutoTest
       RunGoTool(workingDirectory, runCoverageArgs);
       output = RunGoTool(workingDirectory, coverageArgs);
       string shortFile = Path.GetFileNameWithoutExtension(path).Replace("_test", "");
+      var coverageError = false;
       foreach (var line in output.StandardOutput)
       {
         if (line.Contains(shortFile) || line.Contains("total:"))
         {
           var info = line.Substring(line.IndexOf("\t", StringComparison.CurrentCulture)).Trim();
           var functionPercentage = Convert.ToDecimal(info.SubstringBetween("\t", "%"));
-          PrintCoverage(functionPercentage, info);
+          var hasError = PrintCoverage(functionPercentage, info);
+          coverageError = info.Contains("(statements)") ? hasError: coverageError;
         }
       }
 
-      var coverageError = PrintCoverage(processor.CoveragePercent, processor.CoverageLine);
       if (processor.HasError || coverageError || output.StandardError.Any())
       {
         BeepError();
+      }
+      else
+      {
+        BeepSuccess();
       }
     }
 
@@ -119,6 +124,12 @@ namespace GoAutoTest
     {
       Console.Beep(660, 200);
       Console.Beep(440, 200);
+    }
+
+    private static void BeepSuccess()
+    {
+      Console.Beep(660, 50);
+      Console.Beep(1320, 50);
     }
 
     private static ProcessOutput RunGoTool(string workingDirectory, string arguments)
@@ -184,12 +195,12 @@ namespace GoAutoTest
     private static bool PrintCoverage(decimal percentage, string message)
     {
       var hasError = false;
-      if (percentage < 70)
+      if (percentage < 75)
       {
         Console.ForegroundColor = ConsoleColor.Red;
         hasError = true;
       }
-      else if (percentage < 85)
+      else if (percentage < 100)
       {
         Console.ForegroundColor = ConsoleColor.DarkYellow;
       }

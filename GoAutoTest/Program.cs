@@ -10,8 +10,8 @@ namespace GoAutoTest
 {
   class Program
   {
-    private const string runTestsArgs = "test -v -short";
-    private const string runCoverageArgs = "test -short -coverprofile cover.out";
+    private const string runTestsArgs = "test -v -short -timeout 5s";
+    private const string runCoverageArgs = "test -short -coverprofile cover.out -timeout 5s";
     private const string coverageArgs = "tool cover -func=cover.out";
 
     static void Main(string[] args)
@@ -183,11 +183,22 @@ namespace GoAutoTest
           process.BeginOutputReadLine();
           process.BeginErrorReadLine();
 
+          var killed = false;
           if (!process.WaitForExit(timeout) || !outputWaitHandle.WaitOne(timeout) || !errorWaitHandle.WaitOne(timeout))
           {
             process.Kill();
+            killed = true;
           }
-          return new ProcessOutput { StandardError = string.Join(Environment.NewLine, error), StandardOutput = output.ToArray() };
+          var stdOutList = new List<string>();
+          for (var i = 0; i < output.Count && i < 200; i++)
+            stdOutList.Add(output[i]);
+          process.CancelErrorRead();
+          process.CancelOutputRead();
+          if (stdOutList.Count == 200)
+            stdOutList.Add("Output Truncated");
+          if (killed)
+            stdOutList.Add("Process Killed.  ");
+          return new ProcessOutput { StandardError = string.Join(Environment.NewLine, error), StandardOutput = stdOutList.ToArray() }; 
         }
       }
     }

@@ -56,6 +56,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CodeCoverageLine.cs" />
     <Compile Include="ConsoleOutput.cs" />
     <Compile Include="DirectoryMonitor.cs" />
     <Compile Include="ProcessOutput.cs" />

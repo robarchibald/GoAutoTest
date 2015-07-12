@@ -85,17 +85,11 @@ namespace GoAutoTest
       Console.WriteLine("");
       RunGoTool(workingDirectory, runCoverageArgs);
       output = RunGoTool(workingDirectory, coverageArgs);
-      string shortFile = Path.GetFileNameWithoutExtension(path).Replace("_test", "");
       var coverageError = false;
       foreach (var line in output.StandardOutput)
       {
-        if (line.Contains(shortFile) || line.Contains("total:"))
-        {
-          var info = line.Substring(line.IndexOf("\t", StringComparison.CurrentCulture)).Trim();
-          var functionPercentage = Convert.ToDecimal(info.SubstringBetween("\t", "%"));
-          var hasError = PrintCoverage(functionPercentage, info);
-          coverageError = info.Contains("(statements)") ? hasError: coverageError;
-        }
+        var hasError = CodeCoverage.Print(line);
+        coverageError = line.Contains("(statements)") ? hasError: coverageError;
       }
 
       if (processor.HasError || coverageError || output.StandardError.Any())
@@ -201,27 +195,6 @@ namespace GoAutoTest
           return new ProcessOutput { StandardError = string.Join(Environment.NewLine, error), StandardOutput = stdOutList.ToArray() }; 
         }
       }
-    }
-
-    private static bool PrintCoverage(decimal percentage, string message)
-    {
-      var hasError = false;
-      if (percentage < 75)
-      {
-        Console.ForegroundColor = ConsoleColor.Red;
-        hasError = true;
-      }
-      else if (percentage < 100)
-      {
-        Console.ForegroundColor = ConsoleColor.DarkYellow;
-      }
-      else
-      {
-        Console.ForegroundColor = ConsoleColor.DarkGreen;
-      }
-      
-      Console.WriteLine(message);
-      return hasError;
     }
   }
 }

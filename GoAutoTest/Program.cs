@@ -10,7 +10,7 @@ namespace GoAutoTest
 {
   class Program
   {
-    private const string runTestsArgs = "test -v -short -timeout 5s";
+    private const string runTestsArgs = "test ./... -v -short -timeout 5s";
     private const string runCoverageArgs = "test -short -coverprofile cover.out -timeout 5s";
     private const string coverageArgs = "tool cover -func=cover.out";
 
@@ -42,7 +42,9 @@ namespace GoAutoTest
     private static void RunTests(string path)
     {
       var workingDirectory = Path.GetDirectoryName(path);
-      var output = RunGoTool(workingDirectory, runTestsArgs);
+      var srcDirectory = workingDirectory.SubstringTerminatedAt("src\\");
+      var folder = workingDirectory.SubstringBetween(srcDirectory, "\\");
+      var output = RunGoTool(Path.Combine(srcDirectory, folder), runTestsArgs);
       
       Console.Clear();
       Console.ForegroundColor = ConsoleColor.White;
@@ -184,11 +186,11 @@ namespace GoAutoTest
             killed = true;
           }
           var stdOutList = new List<string>();
-          for (var i = 0; i < output.Count && i < 200; i++)
+          for (var i = 0; i < output.Count && i < 500; i++)
             stdOutList.Add(output[i]);
           process.CancelErrorRead();
           process.CancelOutputRead();
-          if (stdOutList.Count == 200)
+          if (stdOutList.Count == 500)
             stdOutList.Add("Output Truncated");
           if (killed)
             stdOutList.Add("Process Killed.  ");

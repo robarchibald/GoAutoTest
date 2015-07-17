@@ -106,12 +106,8 @@ namespace GoAutoTest
 
     private static void ShowBuildError(ProcessOutput output)
     {
-      Console.ForegroundColor = ConsoleColor.White;
-      Console.WriteLine(output.StandardError);
-
       Console.ForegroundColor = ConsoleColor.Red;
-      foreach (var line in output.StandardOutput)
-        Console.WriteLine(line);
+      Console.WriteLine(output.StandardError);
 
       BeepError();
     }

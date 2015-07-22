@@ -27,6 +27,7 @@ namespace GoAutoTest
                  : line.Contains("SKIP:") ? OutputType.TestSkip
                  : line.Contains("===") ? OutputType.Header
                  : line.Contains("panic:") ? OutputType.Error
+                 : line == "PASS" ? OutputType.Header
                  : line.Contains("ok  \t") ? OutputType.Summary
                  : line.Contains("?   \t") ? OutputType.Summary
                  : line.Contains("FAIL\t") ? OutputType.Summary

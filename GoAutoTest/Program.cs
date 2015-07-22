@@ -99,6 +99,11 @@ namespace GoAutoTest
           foreach (var item in summary.Lines)
             WriteLine(item);
         }
+        else
+        {
+          foreach (var item in summary.Lines.Where(i => i.Type == OutputType.Other))
+            WriteLine(item);
+        }
         WriteLine(summary);
       }
 

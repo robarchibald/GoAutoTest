@@ -25,18 +25,15 @@ namespace GoAutoTest
       if (percentage < 75)
       {
         Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine(message);
         hasError = true;
       }
       else if (percentage < 100)
       {
         Console.ForegroundColor = ConsoleColor.DarkYellow;
-      }
-      else
-      {
-        Console.ForegroundColor = ConsoleColor.DarkGreen;
+        Console.WriteLine(message);
       }
 
-      Console.WriteLine(message);
       return hasError;
     }
   }

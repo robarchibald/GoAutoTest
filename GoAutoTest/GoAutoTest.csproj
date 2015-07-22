@@ -59,6 +59,7 @@
     <Compile Include="CodeCoverageLine.cs" />
     <Compile Include="ConsoleOutput.cs" />
     <Compile Include="DirectoryMonitor.cs" />
+    <Compile Include="GoRunner.cs" />
     <Compile Include="ProcessOutput.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

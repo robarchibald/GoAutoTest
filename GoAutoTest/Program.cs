@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace GoAutoTest
@@ -44,57 +46,20 @@ namespace GoAutoTest
       var workingDirectory = Path.GetDirectoryName(path);
       var srcDirectory = workingDirectory.SubstringTerminatedAt("src\\");
       var folder = workingDirectory.SubstringBetween(srcDirectory, "\\");
-      var output = RunGoTool(Path.Combine(srcDirectory, folder), runTestsArgs);
-      
+      var output = GoRunner.RunGoTool(Path.Combine(srcDirectory, folder), runTestsArgs);
+
       Console.Clear();
       Console.ForegroundColor = ConsoleColor.White;
-      var processor = new TestOutputProcessor(output);
-      if (processor.BuildFailed)
+      if (output.StandardError.Any())
       {
         ShowBuildError(output);
         return;
       }
 
-      foreach (var item in processor.ConsoleOutputItems)
-      {
-        Console.ForegroundColor = 
-          item.Type == OutputType.TestFail ? ConsoleColor.Red : 
-          item.Type == OutputType.TestPass ? ConsoleColor.DarkGreen : 
-          item.Type == OutputType.TestSkip ? ConsoleColor.DarkYellow : 
-          ConsoleColor.White;
+      var testError = ProcessTestOutput(output);
+      var coverageError = ProcessCodeCoverage(workingDirectory);
 
-        if (item.Type == OutputType.TestFail || item.Type == OutputType.TestPass || item.Type == OutputType.TestSkip || item.Type == OutputType.Other)
-          Console.WriteLine(item.Message);
-      }
-
-      if (!string.IsNullOrWhiteSpace(output.StandardError))
-      {
-        if (output.StandardError.Contains("goroutine"))
-        {
-          Console.WriteLine(output.StandardError.Substring(0, output.StandardError.IndexOf("goroutine", StringComparison.CurrentCultureIgnoreCase)));
-          foreach (var line in output.StandardError.Split(Environment.NewLine.ToCharArray()))
-          {
-            if (line.Contains("endfirst.com"))
-              Console.WriteLine(line.SubstringAfter("endfirst.com/"));
-          }
-        }
-        else
-        {
-          Console.WriteLine(output.StandardError);
-        }
-      }
-
-      Console.WriteLine("");
-      RunGoTool(workingDirectory, runCoverageArgs);
-      output = RunGoTool(workingDirectory, coverageArgs);
-      var coverageError = false;
-      foreach (var line in output.StandardOutput)
-      {
-        var hasError = CodeCoverage.Print(line);
-        coverageError = line.Contains("(statements)") ? hasError: coverageError;
-      }
-
-      if (processor.HasError || coverageError || output.StandardError.Any())
+      if (testError || coverageError)
       {
         BeepError();
       }
@@ -104,10 +69,59 @@ namespace GoAutoTest
       }
     }
 
+    private static bool ProcessCodeCoverage(string workingDirectory)
+    {
+      GoRunner.RunGoTool(workingDirectory, runCoverageArgs);
+      var output = GoRunner.RunGoTool(workingDirectory, coverageArgs);
+      if (output.StandardError.Any())
+      {
+        ShowBuildError(output);
+        return true;
+      }
+
+      var coverageError = false;
+      foreach (var line in output.StandardOutput)
+      {
+        var hasError = CodeCoverage.Print(line);
+        coverageError = line.Contains("(statements)") ? hasError : coverageError;
+      }
+      return coverageError || output.StandardError.Any();
+    }
+
+    private static bool ProcessTestOutput(ProcessOutput output)
+    {
+      var processor = new TestOutputProcessor(output);
+
+      foreach (var summary in processor.Summary)
+      {
+        if (summary.Status == "FAIL")
+        {
+          foreach (var item in summary.Lines)
+            WriteLine(item);
+        }
+        WriteLine(summary);
+      }
+
+      Console.WriteLine("");
+      return processor.HasError;
+    }
+
+    private static void WriteLine(IOutputType item)
+    {
+      Console.ForegroundColor = item.Type == OutputType.TestFail || item.Type == OutputType.Error ? ConsoleColor.Red
+                              : item.Type == OutputType.TestPass ? ConsoleColor.DarkGreen
+                              : item.Type == OutputType.TestSkip ? ConsoleColor.DarkYellow
+                              : ConsoleColor.White;
+
+      if (item.Type == OutputType.TestFail || item.Type == OutputType.Error || item.Type == OutputType.TestPass || item.Type == OutputType.TestSkip ||
+          item.Type == OutputType.Other)
+        Console.WriteLine(item.ToString());
+    }
+
     private static void ShowBuildError(ProcessOutput output)
     {
       Console.ForegroundColor = ConsoleColor.Red;
-      Console.WriteLine(output.StandardError);
+      Console.WriteLine(string.Join(Environment.NewLine, output.StandardError));
 
       BeepError();
     }
@@ -122,77 +136,6 @@ namespace GoAutoTest
     {
       Console.Beep(660, 50);
       Console.Beep(1320, 50);
-    }
-
-    private static ProcessOutput RunGoTool(string workingDirectory, string arguments)
-    {
-      const int timeout = 5000;
-      using (var process = new Process
-                           {
-                             StartInfo =
-                             {
-                               FileName = @"C:\Go\bin\go.exe",
-                               Arguments = arguments,
-                               CreateNoWindow = true,
-                               WorkingDirectory = workingDirectory,
-                               UseShellExecute = false,
-                               RedirectStandardOutput = true,
-                               RedirectStandardError = true
-                             }
-                           })
-      {
-        var output = new List<string>();
-        var error = new List<string>();
-
-        using (AutoResetEvent outputWaitHandle = new AutoResetEvent(false))
-        using (AutoResetEvent errorWaitHandle = new AutoResetEvent(false))
-        {
-          process.OutputDataReceived += (sender, e) =>
-                                        {
-                                          if (e.Data == null)
-                                          {
-                                            outputWaitHandle.Set();
-                                          }
-                                          else
-                                          {
-                                            output.Add(e.Data);
-                                          }
-                                        };
-          process.ErrorDataReceived += (sender, e) =>
-                                       {
-                                         if (e.Data == null)
-                                         {
-                                           errorWaitHandle.Set();
-                                         }
-                                         else
-                                         {
-                                           error.Add(e.Data);
-                                         }
-                                       };
-
-          process.Start();
-
-          process.BeginOutputReadLine();
-          process.BeginErrorReadLine();
-
-          var killed = false;
-          if (!process.WaitForExit(timeout) || !outputWaitHandle.WaitOne(timeout) || !errorWaitHandle.WaitOne(timeout))
-          {
-            process.Kill();
-            killed = true;
-          }
-          var stdOutList = new List<string>();
-          for (var i = 0; i < output.Count && i < 500; i++)
-            stdOutList.Add(output[i]);
-          process.CancelErrorRead();
-          process.CancelOutputRead();
-          if (stdOutList.Count == 500)
-            stdOutList.Add("Output Truncated");
-          if (killed)
-            stdOutList.Add("Process Killed.  ");
-          return new ProcessOutput { StandardError = string.Join(Environment.NewLine, error), StandardOutput = stdOutList.ToArray() }; 
-        }
-      }
     }
   }
 }

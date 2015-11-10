@@ -93,7 +93,7 @@ namespace GoAutoTest
 
     public override string ToString()
     {
-      return string.Format("---{0}    {1} ({2} Passed, {3} Failed, {4} Skipped)", Status, Filename.PadRight(40), TestsPassed, TestsFailed, TestsSkipped);
+      return string.Format("---{0}    {1} {2} Passed, {3} Failed, {4} Skipped   {5}", Status, Filename.PadRight(40), TestsPassed.ToString().PadLeft(3), TestsFailed.ToString().PadLeft(3), TestsSkipped.ToString().PadLeft(3), Result);
     }
   }
 }

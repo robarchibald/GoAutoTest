@@ -1,20 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace GoAutoTest
 {
   class Program
   {
-    private const string runTestsArgs = "test ./... -v -short -timeout 5s";
+    private const string runTestsArgs = "test -v -short -timeout 5s"; // panic if test runs longer than 5 seconds
     private const string runCoverageArgs = "test -short -coverprofile cover.out -timeout 5s";
     private const string coverageArgs = "tool cover -func=cover.out";
+    private const string coverReport = "tool cover -html=cover.out";
 
     static void Main(string[] args)
     {
@@ -46,7 +41,8 @@ namespace GoAutoTest
       var workingDirectory = Path.GetDirectoryName(path);
       var srcDirectory = workingDirectory.SubstringTerminatedAt("src\\");
       var folder = workingDirectory.SubstringBetween(srcDirectory, "\\");
-      var output = GoRunner.RunGoTool(Path.Combine(srcDirectory, folder), runTestsArgs);
+      //var output = GoRunner.RunGoTool(Path.Combine(srcDirectory, folder), runTestsArgs);
+      var output = GoRunner.RunGoTool(workingDirectory, runTestsArgs);
 
       Console.Clear();
       Console.ForegroundColor = ConsoleColor.White;
@@ -78,6 +74,7 @@ namespace GoAutoTest
         ShowBuildError(output);
         return true;
       }
+      //GoRunner.RunGoTool(workingDirectory, coverReport);
 
       var coverageError = false;
       foreach (var line in output.StandardOutput)
@@ -101,7 +98,7 @@ namespace GoAutoTest
         }
         else
         {
-          foreach (var item in summary.Lines.Where(i => i.Type == OutputType.Other))
+          foreach (var item in summary.Lines.Where(i => i.Type == OutputType.Other || i.RunSeconds > 0.2M))
             WriteLine(item);
         }
         WriteLine(summary);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 
 namespace GoAutoTest
@@ -9,12 +10,15 @@ namespace GoAutoTest
   {
     public static ProcessOutput RunGoTool(string workingDirectory, string arguments)
     {
-      const int timeout = 5000;
+      var root = Environment.GetEnvironmentVariable("GOROOT");
+      if (string.IsNullOrWhiteSpace(root))
+        root = @"C:\Go";
+      const int timeout = 11000; // timeout the entire process if it runs > 11 seconds
       using (var process = new Process
                            {
                              StartInfo =
                              {
-                               FileName = @"C:\Go\bin\go.exe",
+                               FileName = Path.Combine(root, @"bin\go.exe"),
                                Arguments = arguments,
                                CreateNoWindow = true,
                                WorkingDirectory = workingDirectory,

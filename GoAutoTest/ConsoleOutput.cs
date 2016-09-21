@@ -6,9 +6,10 @@ using System.Threading.Tasks;
 
 namespace GoAutoTest
 {
-  public class ConsoleOutput: IOutputType
+  public class ConsoleOutput : IOutputType
   {
     public string Message { get; set; }
+    public decimal RunSeconds { get; set; }
     public OutputType Type { get; set; }
 
     public override string ToString()

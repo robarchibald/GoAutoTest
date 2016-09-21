@@ -32,7 +32,9 @@ namespace GoAutoTest
                  : line.Contains("?   \t") ? OutputType.Summary
                  : line.Contains("FAIL\t") ? OutputType.Summary
                  : OutputType.Other;
-        var consoleOutput = new ConsoleOutput {Message = line, Type = type};
+        decimal runSeconds;
+        decimal.TryParse(line.SubstringBetween("(", "s)"), out runSeconds);
+        var consoleOutput = new ConsoleOutput {Message = line, Type = type, RunSeconds = runSeconds};
         ConsoleOutputItems.Add(consoleOutput);
 
         summaryConsoleItems.Add(consoleOutput);

@@ -9,7 +9,6 @@ namespace GoAutoTest
     private const string runTestsArgs = "test -v -short -timeout 5s"; // panic if test runs longer than 5 seconds
     private const string runCoverageArgs = "test -short -coverprofile cover.out -timeout 5s";
     private const string coverageArgs = "tool cover -func=cover.out";
-    private const string coverReport = "tool cover -html=cover.out";
 
     static void Main(string[] args)
     {
@@ -28,7 +27,6 @@ namespace GoAutoTest
       {
         System.Threading.Thread.Sleep(100);
       }
-
     }
 
     static void OnWatcherChange(string path)
@@ -39,9 +37,6 @@ namespace GoAutoTest
     private static void RunTests(string path)
     {
       var workingDirectory = Path.GetDirectoryName(path);
-      var srcDirectory = workingDirectory.SubstringTerminatedAt("src\\");
-      var folder = workingDirectory.SubstringBetween(srcDirectory, "\\");
-      //var output = GoRunner.RunGoTool(Path.Combine(srcDirectory, folder), runTestsArgs);
       var output = GoRunner.RunGoTool(workingDirectory, runTestsArgs);
 
       Console.Clear();
@@ -74,7 +69,6 @@ namespace GoAutoTest
         ShowBuildError(output);
         return true;
       }
-      //GoRunner.RunGoTool(workingDirectory, coverReport);
 
       var coverageError = false;
       foreach (var line in output.StandardOutput)

@@ -92,7 +92,7 @@ namespace GoAutoTest
         }
         else
         {
-          foreach (var item in summary.Lines.Where(i => i.Type == OutputType.Other || i.RunSeconds > 0.2M))
+          foreach (var item in summary.Lines.Where(i => i.Type == OutputType.Other || i.RunSeconds > 0.1M))
             WriteLine(item);
         }
         WriteLine(summary);

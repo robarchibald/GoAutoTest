@@ -32,7 +32,7 @@ namespace GoAutoTest
     { 
       lock (pendingEvents) 
       { 
-        pendingEvents[e.FullPath] = DateTime.Now;  
+        pendingEvents[Path.GetDirectoryName(e.FullPath)] = DateTime.Now;  
         
         if (!timerStarted)
         {

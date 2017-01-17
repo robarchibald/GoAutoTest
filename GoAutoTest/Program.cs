@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace GoAutoTest
 {
@@ -29,41 +30,32 @@ namespace GoAutoTest
       }
     }
 
-    static void OnWatcherChange(string path)
+    static void OnWatcherChange(string folder)
     {
-      RunTests(path);
+      RunTests(folder);
     }
 
-    private static void RunTests(string path)
+    private static async void RunTests(string folder)
     {
-      var workingDirectory = Path.GetDirectoryName(path);
-      var output = GoRunner.RunGoTool(workingDirectory, runTestsArgs);
+      // asynchronously run test and coverage tasks
+      var tests = Task.Run(() => GoRunner.RunGoTool(folder, runTestsArgs));
+      var coverage = Task.Run(() => Coverage(folder));
 
-      Console.Clear();
-      Console.ForegroundColor = ConsoleColor.White;
-      if (output.StandardError.Any())
-      {
-        ShowBuildError(output);
-        return;
-      }
-
-      var testError = ProcessTestOutput(output);
-      var coverageError = ProcessCodeCoverage(workingDirectory);
-
-      if (testError || coverageError)
-      {
-        BeepError();
-      }
-      else
-      {
+      if (!ProcessTests(await tests) && !ProcessCodeCoverage(await coverage))
         BeepSuccess();
-      }
     }
 
-    private static bool ProcessCodeCoverage(string workingDirectory)
+    private static ProcessOutput Coverage(string folder)
     {
-      GoRunner.RunGoTool(workingDirectory, runCoverageArgs);
-      var output = GoRunner.RunGoTool(workingDirectory, coverageArgs);
+      var profile = GoRunner.RunGoTool(folder, runCoverageArgs); // create cover profile
+      if (profile.StandardError.Any())
+        return profile;
+
+      return GoRunner.RunGoTool(folder, coverageArgs);
+    }
+
+    private static bool ProcessCodeCoverage(ProcessOutput output)
+    {
       if (output.StandardError.Any())
       {
         ShowBuildError(output);
@@ -79,10 +71,17 @@ namespace GoAutoTest
       return coverageError || output.StandardError.Any();
     }
 
-    private static bool ProcessTestOutput(ProcessOutput output)
+    private static bool ProcessTests(ProcessOutput output)
     {
-      var processor = new TestOutputProcessor(output);
+      Console.Clear();
+      Console.ForegroundColor = ConsoleColor.White;
+      if (output.StandardError.Any())
+      {
+        ShowBuildError(output);
+        return true;
+      }
 
+      var processor = new TestOutputProcessor(output);
       foreach (var summary in processor.Summary)
       {
         if (summary.Status == "FAIL")

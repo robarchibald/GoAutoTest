@@ -29,14 +29,14 @@ namespace GoAutoTest
     public event FileSystemEvent Change;
 
     private void OnChange(object sender, FileSystemEventArgs e) 
-    { 
+    {
       lock (pendingEvents) 
       { 
         pendingEvents[Path.GetDirectoryName(e.FullPath)] = DateTime.Now;  
         
         if (!timerStarted)
         {
-          timer.Change(100, 100); 
+          timer.Change(150, 150); 
           timerStarted = true;
         }  
       } 
@@ -68,7 +68,7 @@ namespace GoAutoTest
       
       foreach (var item in events)
       {
-        if (now.Subtract(item.Value).TotalMilliseconds >= 75) 
+        if (now.Subtract(item.Value).TotalMilliseconds >= 140) 
           results.Add(item.Key); 
       }  
       return results; 
@@ -76,6 +76,7 @@ namespace GoAutoTest
 
     private void FireEvent(string path)
     {
+      Console.WriteLine("Change detected at: {0}", path);
       FileSystemEvent evt = Change;
       if (evt != null)
       {

@@ -60,7 +60,6 @@ namespace GoAutoTest
     {
       if (output.StandardError.Any())
       {
-        Console.WriteLine("error on StdOut during ProcessCodeCoverage");
         ShowBuildError(output);
         return true;
       }
@@ -80,7 +79,6 @@ namespace GoAutoTest
       Console.ForegroundColor = ConsoleColor.White;
       if (output.StandardError.Any())
       {
-        Console.WriteLine("error on StdOut during ProcessTests");
         ShowBuildError(output);
         return true;
       }

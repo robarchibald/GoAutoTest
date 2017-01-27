@@ -36,7 +36,7 @@ namespace GoAutoTest
         
         if (!timerStarted)
         {
-          timer.Change(150, 150); 
+          timer.Change(250, 250); 
           timerStarted = true;
         }  
       } 

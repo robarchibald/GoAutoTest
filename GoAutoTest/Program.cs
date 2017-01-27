@@ -41,7 +41,9 @@ namespace GoAutoTest
       var tests = Task.Run(() => GoRunner.RunGoTool(folder, runTestsArgs));
       var coverage = Task.Run(() => Coverage(folder));
 
-      if (!ProcessTests(await tests) && !ProcessCodeCoverage(await coverage))
+      var testResult = ProcessTests(await tests);
+      var coverageResult = ProcessCodeCoverage(await coverage);
+      if (!testResult && !coverageResult)
         BeepSuccess();
     }
 
@@ -58,6 +60,7 @@ namespace GoAutoTest
     {
       if (output.StandardError.Any())
       {
+        Console.WriteLine("error on StdOut during ProcessCodeCoverage");
         ShowBuildError(output);
         return true;
       }
@@ -77,6 +80,7 @@ namespace GoAutoTest
       Console.ForegroundColor = ConsoleColor.White;
       if (output.StandardError.Any())
       {
+        Console.WriteLine("error on StdOut during ProcessTests");
         ShowBuildError(output);
         return true;
       }

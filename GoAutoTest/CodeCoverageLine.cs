@@ -15,7 +15,8 @@ namespace GoAutoTest
       var file = Path.GetFileName(line.Substring(0, items[0].IndexOf(":", StringComparison.CurrentCulture)));
       //var lineNumber = Convert.ToInt32(items[0].Substring(file.Length + 1));
       var method = string.Join("", items.Skip(1).Take(items.Length-2));
-      var percentage = Convert.ToDecimal(items.Last().Replace("%", ""));
+      decimal percentage;
+      decimal.TryParse(items.Last().Replace("%", ""), out percentage);
       return PrintCoverage(percentage, file.PadRight(35) + method.PadRight(30) + percentage + "%");
     }
 
